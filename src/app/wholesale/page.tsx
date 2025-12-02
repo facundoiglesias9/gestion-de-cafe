@@ -120,7 +120,7 @@ export default function WholesalePage() {
                         .eq('id', existingInventory.id)
                 } else {
                     // Insert new item
-                    await supabase
+                    const { error: insertError } = await supabase
                         .from('inventory')
                         .insert([{
                             name: item.name,
@@ -128,9 +128,13 @@ export default function WholesalePage() {
                             quantity: item.batch_quantity,
                             unit: item.unit || 'Unidad',
                             cost: costPerUnit,
-                            status: 'En Stock',
                             min_stock: 10 // Default min stock
                         }])
+
+                    if (insertError) {
+                        console.error('Error inserting inventory item:', insertError)
+                        throw insertError
+                    }
                 }
             }
 
