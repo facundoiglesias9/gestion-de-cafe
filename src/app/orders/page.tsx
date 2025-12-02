@@ -43,6 +43,7 @@ export default function OrdersPage() {
     const [cart, setCart] = useState<OrderItem[]>([])
     const [customerName, setCustomerName] = useState('')
     const [tableNumber, setTableNumber] = useState('')
+    const [isCreatingOrder, setIsCreatingOrder] = useState(false)
     const router = useRouter()
 
     useEffect(() => {
@@ -108,7 +109,9 @@ export default function OrdersPage() {
 
     async function handleCreateOrder() {
         if (!customerName || cart.length === 0) return
+        if (isCreatingOrder) return // Prevent double submission
 
+        setIsCreatingOrder(true)
         try {
             // 1. Validate Stock
             for (const item of cart) {
@@ -204,6 +207,8 @@ export default function OrdersPage() {
         } catch (error: any) {
             console.error('Error creating order:', error)
             alert(error.message || 'Error al crear el pedido')
+        } finally {
+            setIsCreatingOrder(false)
         }
     }
 
@@ -406,8 +411,13 @@ export default function OrdersPage() {
                                         <span>Total</span>
                                         <span>{formatCurrency(cartTotal)}</span>
                                     </div>
-                                    <button className={styles.confirmButton} onClick={handleCreateOrder}>
-                                        Confirmar Pedido
+                                    <button
+                                        className={styles.confirmButton}
+                                        onClick={handleCreateOrder}
+                                        disabled={isCreatingOrder}
+                                        style={{ opacity: isCreatingOrder ? 0.6 : 1 }}
+                                    >
+                                        {isCreatingOrder ? 'Creando pedido...' : 'Confirmar Pedido'}
                                     </button>
                                 </div>
                             </div>
