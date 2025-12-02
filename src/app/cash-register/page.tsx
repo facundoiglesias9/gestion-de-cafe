@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import styles from './page.module.css'
-import { ArrowLeft, Plus, TrendingUp, TrendingDown, DollarSign, X } from 'lucide-react'
+import { ArrowLeft, Plus, TrendingUp, TrendingDown, DollarSign, X, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
@@ -77,6 +77,25 @@ export default function CashRegisterPage() {
         }
     }
 
+    async function handleDeleteTransaction(id: string) {
+        if (!confirm('¿Estás seguro de eliminar este movimiento?')) return
+
+        try {
+            const { error } = await supabase
+                .from('transactions')
+                .delete()
+                .eq('id', id)
+
+            if (error) throw error
+            fetchTransactions()
+        } catch (error) {
+            console.error('Error deleting transaction:', error)
+            alert('Error al eliminar movimiento')
+        }
+    }
+
+    const netBalance = totalIncome - totalExpenses
+
     return (
         <main className={styles.container}>
             <header className={styles.header}>
@@ -90,6 +109,21 @@ export default function CashRegisterPage() {
                     <Plus size={20} /> Agregar Gasto
                 </button>
             </header>
+
+            <div className={styles.balanceCard}>
+                <div>
+                    <div className={styles.balanceTitle}>Balance de Caja</div>
+                    <div className={styles.balanceAmount} style={{ color: netBalance >= 0 ? '#2a9d8f' : '#e63946' }}>
+                        {formatCurrency(netBalance)}
+                    </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                    <div style={{ color: '#888', fontSize: '0.9rem' }}>Estado Actual</div>
+                    <div style={{ color: netBalance >= 0 ? '#2a9d8f' : '#e63946', fontWeight: '600' }}>
+                        {netBalance >= 0 ? 'Superávit' : 'Déficit'}
+                    </div>
+                </div>
+            </div>
 
             <div className={styles.grid}>
                 {/* Income Column */}
@@ -115,8 +149,16 @@ export default function CashRegisterPage() {
                                         <span>{t.category}</span>
                                     </div>
                                 </div>
-                                <div className={styles.transactionAmount} style={{ color: '#2a9d8f' }}>
-                                    +{formatCurrency(t.amount)}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div className={styles.transactionAmount} style={{ color: '#2a9d8f' }}>
+                                        +{formatCurrency(t.amount)}
+                                    </div>
+                                    <button
+                                        className={styles.deleteButton}
+                                        onClick={() => handleDeleteTransaction(t.id)}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -149,8 +191,16 @@ export default function CashRegisterPage() {
                                         <span>{t.category}</span>
                                     </div>
                                 </div>
-                                <div className={styles.transactionAmount} style={{ color: '#e63946' }}>
-                                    -{formatCurrency(t.amount)}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                                    <div className={styles.transactionAmount} style={{ color: '#e63946' }}>
+                                        -{formatCurrency(t.amount)}
+                                    </div>
+                                    <button
+                                        className={styles.deleteButton}
+                                        onClick={() => handleDeleteTransaction(t.id)}
+                                    >
+                                        <Trash2 size={16} />
+                                    </button>
                                 </div>
                             </div>
                         ))}
