@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import styles from './page.module.css'
-import { Plus, ArrowLeft, X, Clock, CheckCircle, Coffee, AlertCircle, ArrowRight } from 'lucide-react'
+import { Plus, ArrowLeft, X, Clock, CheckCircle, Coffee, AlertCircle, ArrowRight, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
@@ -221,6 +221,24 @@ export default function OrdersPage() {
         fetchOrders()
     }
 
+    async function cancelOrder(orderId: string) {
+        if (!confirm('¿Estás seguro de cancelar este pedido?')) return
+
+        try {
+            const { error } = await supabase
+                .from('orders')
+                .delete()
+                .eq('id', orderId)
+
+            if (error) throw error
+            fetchOrders()
+            alert('Pedido cancelado')
+        } catch (error) {
+            console.error('Error canceling order:', error)
+            alert('Error al cancelar el pedido')
+        }
+    }
+
     const getStatusColor = (status: string) => {
         switch (status) {
             case 'pending': return '#e63946'
@@ -316,9 +334,21 @@ export default function OrdersPage() {
                             >
                                 <div className={styles.orderHeader}>
                                     <span className={styles.orderId}>#{order.id.slice(0, 4)}</span>
-                                    <span className={styles.orderTime}>
-                                        {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                    </span>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                        <span className={styles.orderTime}>
+                                            {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                        <button
+                                            className={styles.cancelButton}
+                                            onClick={(e) => {
+                                                e.stopPropagation()
+                                                cancelOrder(order.id)
+                                            }}
+                                            title="Cancelar pedido"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    </div>
                                 </div>
                                 <div className={styles.customerName}>
                                     {order.customer_name}

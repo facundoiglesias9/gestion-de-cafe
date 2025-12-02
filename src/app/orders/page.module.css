@@ -301,3 +301,4 @@
     margin-bottom: 1rem;
 }.orderItem { font-size: 0.85rem; color: #999; padding: 0.25rem 0; }
 .tableBadge { display: inline-block; background: rgba(212, 163, 115, 0.2); color: var(--primary); padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; margin-left: 0.5rem; font-weight: 500; }
+.cancelButton { background: transparent; border: none; color: #e63946; cursor: pointer; padding: 0.25rem; border-radius: 4px; transition: background 0.2s; display: flex; align-items: center; justify-content: center; } .cancelButton:hover { background: rgba(230, 57, 70, 0.1); }
