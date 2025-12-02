@@ -299,4 +299,4 @@
     border-radius: 8px;
     color: var(--foreground);
     margin-bottom: 1rem;
-}
+}.orderItem { font-size: 0.85rem; color: #999; padding: 0.25rem 0; }

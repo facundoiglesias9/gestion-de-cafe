@@ -25,7 +25,13 @@ interface Order {
     customer_name: string
     status: 'pending' | 'preparing' | 'ready' | 'completed'
     total: number
-    items?: any[]
+    order_items?: Array<{
+        quantity: number
+        product_id: string
+        products?: {
+            name: string
+        }
+    }>
 }
 
 export default function OrdersPage() {
@@ -56,7 +62,16 @@ export default function OrdersPage() {
     async function fetchOrders() {
         const { data, error } = await supabase
             .from('orders')
-            .select('*')
+            .select(`
+                *,
+                order_items (
+                    quantity,
+                    product_id,
+                    products (
+                        name
+                    )
+                )
+            `)
             .neq('status', 'completed') // Only active orders
             .order('created_at', { ascending: true })
 
@@ -283,6 +298,15 @@ export default function OrdersPage() {
                                     </span>
                                 </div>
                                 <div className={styles.customerName}>{order.customer_name}</div>
+                                {order.order_items && order.order_items.length > 0 && (
+                                    <div className={styles.orderItems}>
+                                        {order.order_items.map((item: any, idx: number) => (
+                                            <div key={idx} className={styles.orderItem}>
+                                                <span>{item.quantity}x {item.products?.name || 'Producto'}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                                 <div className={styles.orderFooter}>
                                     <span className={styles.orderTotal}>{formatCurrency(order.total)}</span>
                                     <button
