@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import styles from './page.module.css'
-import { Coffee, ShoppingCart, Package, Users, TrendingUp, AlertCircle, Wifi, WifiOff, LogOut, Clock, ShoppingBag, Plus, ClipboardList } from 'lucide-react'
+import { Coffee, ShoppingCart, Package, Users, TrendingUp, AlertCircle, Wifi, WifiOff, LogOut, Clock, ShoppingBag, Plus, ClipboardList, DollarSign } from 'lucide-react'
 import { supabase } from '@/lib/supabaseClient'
 import { useRouter } from 'next/navigation'
 
@@ -16,16 +16,17 @@ export default function Home() {
     router.refresh()
   }
 
+  const [storeName, setStoreName] = useState('Café Manager')
+  const [salesToday, setSalesToday] = useState(0)
+  const [activeOrders, setActiveOrders] = useState(0)
+  const [stockAlerts, setStockAlerts] = useState(0)
+
   useEffect(() => {
     async function checkConnection() {
       try {
         const { error } = await supabase.from('products').select('count', { count: 'exact', head: true })
-        // Even if table doesn't exist, we connected to Supabase. 
-        // If error is code '42P01' (undefined_table), we are connected but table is missing.
-        // If error is network error or auth, then we failed.
         if (error && error.code !== '42P01') {
           console.error('Supabase error:', error)
-          // We'll assume connected if it's just a missing table, as credentials are valid
           setConnectionStatus('connected')
         } else {
           setConnectionStatus('connected')
@@ -35,14 +36,68 @@ export default function Home() {
         setConnectionStatus('error')
       }
     }
+
+    async function fetchStoreName() {
+      const { data } = await supabase.from('store_settings').select('store_name').single()
+      if (data) setStoreName(data.store_name)
+    }
+
+    async function fetchStats() {
+      // 1. Sales Today
+      const today = new Date().toISOString().split('T')[0]
+      const { data: salesData } = await supabase
+        .from('orders')
+        .select('total')
+        .eq('status', 'completed')
+        .gte('created_at', `${today}T00:00:00`)
+        .lte('created_at', `${today}T23:59:59`)
+
+      const totalSales = salesData?.reduce((sum, order) => sum + order.total, 0) || 0
+      setSalesToday(totalSales)
+
+      // 2. Active Orders
+      const { count: activeCount } = await supabase
+        .from('orders')
+        .select('*', { count: 'exact', head: true })
+        .neq('status', 'completed')
+
+      setActiveOrders(activeCount || 0)
+
+      // 3. Stock Alerts
+      // We need to fetch items where quantity <= min_stock. 
+      // Since Supabase filter for column comparison is tricky in simple query without RPC, 
+      // we'll fetch all and filter in JS for now (assuming inventory isn't huge yet), 
+      // or use a raw query if we had that setup. 
+      // Actually, we can just fetch all items and filter.
+      const { data: inventory } = await supabase
+        .from('inventory')
+        .select('quantity, min_stock')
+
+      const alerts = inventory?.filter(item => item.quantity <= item.min_stock).length || 0
+      setStockAlerts(alerts)
+    }
+
     checkConnection()
+    fetchStoreName()
+    fetchStats()
+
+    // Realtime subscription for updates
+    const channel = supabase
+      .channel('dashboard_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory' }, () => fetchStats())
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   return (
     <main className={styles.container}>
       <header className={styles.header}>
         <div>
-          <h1 className={styles.title}>Café Manager</h1>
+          <h1 className={styles.title}>{storeName}</h1>
           <p className={styles.subtitle}>Panel de Control & Gestión</p>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -77,15 +132,15 @@ export default function Home() {
 
       <div className={styles.statsGrid}>
         <div className={styles.statCard}>
-          <div className={styles.statValue}>$12.450,00</div>
+          <div className={styles.statValue}>${salesToday.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</div>
           <div className={styles.statLabel}>Ventas Hoy</div>
         </div>
         <div className={styles.statCard}>
-          <div className={styles.statValue}>24</div>
+          <div className={styles.statValue}>{activeOrders}</div>
           <div className={styles.statLabel}>Pedidos Activos</div>
         </div>
         <div className={styles.statCard}>
-          <div className={styles.statValue} style={{ color: '#e63946' }}>3</div>
+          <div className={styles.statValue} style={{ color: stockAlerts > 0 ? '#e63946' : 'white' }}>{stockAlerts}</div>
           <div className={styles.statLabel}>Alertas Stock</div>
         </div>
       </div>
@@ -164,14 +219,14 @@ export default function Home() {
         <div className={styles.card}>
           <div className={styles.cardHeader}>
             <AlertCircle className={styles.icon} size={24} />
-            <h2 className={styles.cardTitle}>Configuración</h2>
+            <h2 className={styles.cardTitle}>Editar Tienda</h2>
           </div>
-          <p className={styles.cardContent}>Ajustes generales del sistema, impresoras y facturación.</p>
+          <p className={styles.cardContent}>Modificar el nombre de tu cafetería.</p>
           <button
             className={styles.button}
             onClick={() => router.push('/settings')}
           >
-            Ajustes
+            Editar
           </button>
         </div>
 
@@ -200,6 +255,20 @@ export default function Home() {
             onClick={() => router.push('/wholesale')}
           >
             Hacer Pedido
+          </button>
+        </div>
+
+        <div className={styles.card}>
+          <div className={styles.cardHeader}>
+            <DollarSign className={styles.icon} size={24} />
+            <h2 className={styles.cardTitle}>Caja</h2>
+          </div>
+          <p className={styles.cardContent}>Control de ingresos y egresos. Registra gastos de alquiler y servicios.</p>
+          <button
+            className={styles.button}
+            onClick={() => router.push('/cash-register')}
+          >
+            Ver Movimientos
           </button>
         </div>
       </div>

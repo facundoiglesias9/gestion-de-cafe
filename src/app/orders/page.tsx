@@ -261,7 +261,19 @@ export default function OrdersPage() {
                                 onClick={() => {
                                     if (col.id === 'pending') updateStatus(order.id, 'preparing')
                                     else if (col.id === 'preparing') updateStatus(order.id, 'ready')
-                                    else if (col.id === 'ready') updateStatus(order.id, 'completed')
+                                    else if (col.id === 'ready') {
+                                        updateStatus(order.id, 'completed')
+                                        // Record Income
+                                        supabase.from('transactions').insert([{
+                                            type: 'income',
+                                            amount: order.total,
+                                            description: `Venta #${order.id.slice(0, 4)} - ${order.customer_name}`,
+                                            category: 'Venta',
+                                            related_id: order.id
+                                        }]).then(({ error }) => {
+                                            if (error) console.error('Error recording income:', error)
+                                        })
+                                    }
                                 }}
                             >
                                 <div className={styles.orderHeader}>

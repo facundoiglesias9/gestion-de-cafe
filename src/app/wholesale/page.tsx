@@ -134,7 +134,19 @@ export default function WholesalePage() {
                 }
             }
 
-            alert('Pedido generado y stock actualizado correctamente!')
+            // Calculate total order cost
+            const totalOrderCost = itemsToOrder.reduce((sum, item) => sum + item.cost, 0)
+
+            // Record Transaction
+            await supabase.from('transactions').insert([{
+                type: 'expense',
+                amount: totalOrderCost,
+                description: `Pedido Mayorista (${selectedItems.length} productos)`,
+                category: 'Compra Mayorista',
+                created_at: new Date().toISOString()
+            }])
+
+            alert('Pedido generado, stock actualizado y gasto registrado!')
             setSelectedItems([])
         } catch (error) {
             console.error('Error generating order:', error)

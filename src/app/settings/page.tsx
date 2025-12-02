@@ -4,9 +4,64 @@
 import styles from './page.module.css'
 import { ArrowLeft, Store, Printer, CreditCard, Save } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { supabase } from '@/lib/supabaseClient'
 
 export default function SettingsPage() {
     const router = useRouter()
+    const [storeName, setStoreName] = useState('')
+    const [loading, setLoading] = useState(true)
+    const [saving, setSaving] = useState(false)
+
+    useEffect(() => {
+        fetchSettings()
+    }, [])
+
+    async function fetchSettings() {
+        try {
+            const { data, error } = await supabase
+                .from('store_settings')
+                .select('store_name')
+                .single() // Assuming only one row
+
+            if (data) {
+                setStoreName(data.store_name)
+            } else {
+                // Fallback if no row exists (though SQL script creates one)
+                setStoreName('Café Manager')
+            }
+        } catch (error) {
+            console.error('Error fetching settings:', error)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    async function handleSave() {
+        setSaving(true)
+        try {
+            // We update the first row found, or we could assume ID 1
+            // A safer way is to update where id is not null (updates all rows, but we only have 1)
+            // Or better, fetch the ID first. But let's assume single row logic.
+
+            // First, let's just update all rows since we only want one store name
+            const { error } = await supabase
+                .from('store_settings')
+                .update({ store_name: storeName })
+                .gt('id', 0) // Update all rows
+
+            if (error) throw error
+
+            alert('Nombre actualizado correctamente')
+            router.push('/')
+            router.refresh()
+        } catch (error) {
+            console.error('Error saving settings:', error)
+            alert('Error al guardar')
+        } finally {
+            setSaving(false)
+        }
+    }
 
     return (
         <main className={styles.container}>
@@ -15,83 +70,31 @@ export default function SettingsPage() {
                     <button onClick={() => router.push('/')} className={styles.backButton}>
                         <ArrowLeft size={18} /> Volver al Inicio
                     </button>
-                    <h1 className={styles.title}>Configuración</h1>
+                    <h1 className={styles.title}>Editar Tienda</h1>
                 </div>
-                <button className={styles.saveButton}>
-                    <Save size={18} style={{ marginRight: '0.5rem' }} /> Guardar Cambios
-                </button>
             </header>
 
-            <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>
-                    <Store size={24} /> Datos del Negocio
-                </h2>
-                <div className={styles.row}>
-                    <div className={styles.formGroup}>
-                        <label className={styles.label}>Nombre del Café</label>
-                        <input className={styles.input} defaultValue="Café Manager" />
-                    </div>
-                    <div className={styles.formGroup}>
-                        <label className={styles.label}>Dirección</label>
-                        <input className={styles.input} defaultValue="Av. Principal 123" />
-                    </div>
-                </div>
-                <div className={styles.row}>
-                    <div className={styles.formGroup}>
-                        <label className={styles.label}>Teléfono</label>
-                        <input className={styles.input} defaultValue="+54 11 1234-5678" />
-                    </div>
-                    <div className={styles.formGroup}>
-                        <label className={styles.label}>Email de Contacto</label>
-                        <input className={styles.input} defaultValue="contacto@cafe.com" />
-                    </div>
-                </div>
-            </div>
-
-            <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>
-                    <Printer size={24} /> Impresoras y Tickets
-                </h2>
-                <div className={styles.row}>
-                    <div className={styles.formGroup}>
-                        <label className={styles.label}>Impresora de Cocina</label>
-                        <select className={styles.select}>
-                            <option>EPSON TM-T20III</option>
-                            <option>Generic Text Printer</option>
-                        </select>
-                    </div>
-                    <div className={styles.formGroup}>
-                        <label className={styles.label}>Impresora de Caja</label>
-                        <select className={styles.select}>
-                            <option>EPSON TM-T20III</option>
-                            <option>Generic Text Printer</option>
-                        </select>
-                    </div>
-                </div>
+            <div className={styles.section} style={{ maxWidth: '600px', margin: '0 auto' }}>
                 <div className={styles.formGroup}>
-                    <label className={styles.label}>Mensaje al pie del ticket</label>
-                    <input className={styles.input} defaultValue="¡Gracias por su visita! Vuelva pronto." />
+                    <label className={styles.label}>Nombre de la Tienda</label>
+                    <input
+                        className={styles.input}
+                        value={storeName}
+                        onChange={(e) => setStoreName(e.target.value)}
+                        placeholder="Ej: Mi Cafetería"
+                        disabled={loading}
+                    />
                 </div>
-            </div>
 
-            <div className={styles.section}>
-                <h2 className={styles.sectionTitle}>
-                    <CreditCard size={24} /> Impuestos y Facturación
-                </h2>
-                <div className={styles.row}>
-                    <div className={styles.formGroup}>
-                        <label className={styles.label}>IVA (%)</label>
-                        <input className={styles.input} type="number" defaultValue="21" />
-                    </div>
-                    <div className={styles.formGroup}>
-                        <label className={styles.label}>Moneda</label>
-                        <select className={styles.select}>
-                            <option>ARS ($)</option>
-                            <option>USD ($)</option>
-                            <option>EUR (€)</option>
-                        </select>
-                    </div>
-                </div>
+                <button
+                    className={styles.saveButton}
+                    onClick={handleSave}
+                    disabled={loading || saving}
+                    style={{ marginTop: '2rem', width: '100%', justifyContent: 'center' }}
+                >
+                    <Save size={18} style={{ marginRight: '0.5rem' }} />
+                    {saving ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
             </div>
         </main>
     )
