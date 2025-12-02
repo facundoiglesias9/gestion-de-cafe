@@ -23,7 +23,9 @@ interface Order {
     id: string
     created_at: string
     customer_name: string
+    table_number?: string
     status: 'pending' | 'preparing' | 'ready' | 'completed'
+    payment_status?: 'pending' | 'paid'
     total: number
     order_items?: Array<{
         quantity: number
@@ -40,6 +42,7 @@ export default function OrdersPage() {
     const [isModalOpen, setIsModalOpen] = useState(false)
     const [cart, setCart] = useState<OrderItem[]>([])
     const [customerName, setCustomerName] = useState('')
+    const [tableNumber, setTableNumber] = useState('')
     const router = useRouter()
 
     useEffect(() => {
@@ -141,8 +144,10 @@ export default function OrdersPage() {
                 .from('orders')
                 .insert([{
                     customer_name: customerName,
+                    table_number: tableNumber,
                     total: cartTotal,
-                    status: 'pending'
+                    status: 'pending',
+                    payment_status: 'pending'
                 }])
                 .select()
                 .single()
@@ -193,6 +198,7 @@ export default function OrdersPage() {
             setIsModalOpen(false)
             setCart([])
             setCustomerName('')
+            setTableNumber('')
             fetchOrders()
             alert('Pedido creado correctamente')
         } catch (error: any) {
@@ -277,17 +283,29 @@ export default function OrdersPage() {
                                     if (col.id === 'pending') updateStatus(order.id, 'preparing')
                                     else if (col.id === 'preparing') updateStatus(order.id, 'ready')
                                     else if (col.id === 'ready') {
-                                        updateStatus(order.id, 'completed')
-                                        // Record Income
-                                        supabase.from('transactions').insert([{
-                                            type: 'income',
-                                            amount: order.total,
-                                            description: `Venta #${order.id.slice(0, 4)} - ${order.customer_name}`,
-                                            category: 'Venta',
-                                            related_id: order.id
-                                        }]).then(({ error }) => {
-                                            if (error) console.error('Error recording income:', error)
-                                        })
+                                        // Mark as paid and complete
+                                        if (confirm(`¿Confirmar pago de Mesa ${order.table_number || 'S/N'}?`)) {
+                                            supabase
+                                                .from('orders')
+                                                .update({
+                                                    payment_status: 'paid',
+                                                    status: 'completed'
+                                                })
+                                                .eq('id', order.id)
+                                                .then(() => {
+                                                    // Record Income
+                                                    supabase.from('transactions').insert([{
+                                                        type: 'income',
+                                                        amount: order.total,
+                                                        description: `Venta Mesa ${order.table_number || 'S/N'} - ${order.customer_name}`,
+                                                        category: 'Venta',
+                                                        related_id: order.id
+                                                    }]).then(({ error }) => {
+                                                        if (error) console.error('Error recording income:', error)
+                                                    })
+                                                    fetchOrders()
+                                                })
+                                        }
                                     }
                                 }}
                             >
@@ -297,7 +315,12 @@ export default function OrdersPage() {
                                         {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                     </span>
                                 </div>
-                                <div className={styles.customerName}>{order.customer_name}</div>
+                                <div className={styles.customerName}>
+                                    {order.customer_name}
+                                    {order.table_number && (
+                                        <span className={styles.tableBadge}>Mesa {order.table_number}</span>
+                                    )}
+                                </div>
                                 {order.order_items && order.order_items.length > 0 && (
                                     <div className={styles.orderItems}>
                                         {order.order_items.map((item: any, idx: number) => (
@@ -315,7 +338,7 @@ export default function OrdersPage() {
                                     >
                                         {col.id === 'pending' && 'En Preparación'}
                                         {col.id === 'preparing' && 'Listo'}
-                                        {col.id === 'ready' && 'Entregado'}
+                                        {col.id === 'ready' && 'Confirmar Pago'}
                                         <ArrowRight size={16} />
                                     </button>
                                 </div>
@@ -351,6 +374,13 @@ export default function OrdersPage() {
                                     value={customerName}
                                     onChange={e => setCustomerName(e.target.value)}
                                     autoFocus
+                                />
+                                <input
+                                    className={styles.input}
+                                    placeholder="Número de Mesa (opcional)"
+                                    value={tableNumber}
+                                    onChange={e => setTableNumber(e.target.value)}
+                                    style={{ marginTop: '0.5rem' }}
                                 />
                                 <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1rem' }}>
                                     {cart.map((item, idx) => (
